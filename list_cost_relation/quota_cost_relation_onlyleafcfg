@@ -1,0 +1,148 @@
+[DEFAULT]
+workspace = /home/shilei/fbpmx/quota_cost_relation/quota_cost_relation_${date}
+
+
+[project]
+actions = evaluate
+
+[evaluators]
+keys = list_quota_cost_listwise, list_quota_cost_pointwise
+
+[models]
+keys = list_quota_cost_listwise_listNet, list_quota_cost_listwise_binary_listNet, list_quota_cost_listwise_lambdaLoss, list_quota_cost_pointwise
+
+
+[datasets]
+keys = list_quota_cost_train_valid, list_quota_cost_train
+
+##################################################
+
+[dataset_project_list_quota_cost_out]
+class = ReadFileDataset
+format = json
+; dir = /home/shilei/corpus/list_cost_relation/project_list_quota_cost_out.json
+dir = /home/shilei/corpus/list_cost_relation/project_list_quota_cost_out_onlyleaf.json
+reset = False
+
+
+[dataset_project_list_quota_cost_trans]
+class = MapDataset
+input = project_list_quota_cost_out
+expression = {'label': str(int(x["label"])),
+              'text': "-".join([x["list_name"],x["quota_name"]]),
+              # 'text': "-".join([x["list_name"],x["quota_name"]]) if x["up_name"] is None else "-".join([x["up_name"],x["list_name"],x["quota_name"]]),
+              'context': x["cost_name_with_upper"]}
+keep_exists = True
+
+
+[dataset_list_quota_cost_test]
+class = FilterDataset
+input = project_list_quota_cost_trans
+filters = ("pid" in x) and (int(x["pid"][-8:],16) % 10 < 1)
+
+[dataset_list_quota_cost_train]
+class = FilterDataset
+input = project_list_quota_cost_trans
+filters = ("pid" in x) and (int(x["pid"][-8:],16) % 10 >= 1)
+
+
+[dataset_list_quota_cost_train_positive]
+class = FilterDataset
+input = list_quota_cost_train
+filters = ("label" in x) and (x["label"] == '1')
+
+
+[dataset_list_quota_cost_train_negative]
+class = FilterDataset
+input = list_quota_cost_train
+filters = ("label" in x) and (x["label"] == '0') and ( ( int(x["pid_list_quota_map_cost_negative"])<10000 ) or (int(x["pid_list_quota_map_cost_negative"])>=10000) and (int(x["relation_id"][-8:],16) % 10 < 1))
+
+
+[dataset_list_quota_cost_train_valid]
+class = MergeDataset
+datasets = list_quota_cost_train_positive, list_quota_cost_train_negative
+
+[model_list_quota_cost_pointwise]
+class = BinaryClassificationModel
+data = list_quota_cost_train_valid
+bert_base = /home/shilei/model_repository/chinese-roberta-wwm-ext_ft
+text=text
+with_context=1
+context=context
+learning_rate = 5.0e-5
+num_epochs = 70
+train_ratio = 0.85
+batch_size = 128
+max_seq_length = 128
+positive = 1
+negative = 0
+
+[evaluator_list_quota_cost_pointwise]
+class=BinaryClassificationEvaluator
+positive = 1
+negative = 0
+dataset = list_quota_cost_test
+models = list_quota_cost_pointwise
+threshold = 0.5
+
+
+#####################################################
+
+[model_list_quota_cost_listwise_binary_listNet]
+class = SequenceLTRModel
+data = list_quota_cost_train
+bert_base = /home/shilei/model_repository/chinese-roberta-wwm-ext_ft
+query_id = quota_key
+query = text
+title = context
+learning_rate = 2.0e-5
+num_epochs = 70
+train_ratio = 0.85
+batch_size = 16
+max_seq_length = 128
+max_slate_length = 128
+ranks = 0,1
+re_predict = True
+loss_name=binary_listNet
+
+[model_list_quota_cost_listwise_lambdaLoss]
+class = SequenceLTRModel
+data = list_quota_cost_train
+bert_base = /home/shilei/model_repository/chinese-roberta-wwm-ext_ft
+query_id = quota_key
+query = text
+title = context
+learning_rate = 2.0e-5
+num_epochs = 70
+train_ratio = 0.85
+batch_size = 16
+max_seq_length = 128
+max_slate_length = 128
+ranks = 0,1
+re_predict = True
+loss_name=lambdaLoss
+
+
+[model_list_quota_cost_listwise_listNet]
+class = SequenceLTRModel
+data = list_quota_cost_train
+bert_base = /home/shilei/model_repository/chinese-roberta-wwm-ext_ft
+query_id = quota_key
+query = text
+title = context
+learning_rate = 2.0e-5
+num_epochs = 70
+train_ratio = 0.85
+batch_size = 16
+max_seq_length = 128
+max_slate_length = 128
+ranks = 0,1
+re_predict = True
+loss_name=listNet
+
+
+[evaluator_list_quota_cost_listwise]
+class=SimplePredictor
+datasets = list_quota_cost_test
+models = list_quota_cost_listwise_listNet, list_quota_cost_listwise_binary_listNet, list_quota_cost_listwise_lambdaLoss
+
