@@ -1,0 +1,12 @@
+[DEFAULT]
+workspace = /home/shilei/fbpmx/attributes_extract/attributes_extract_${date}
+
+[project]
+actions = generate
+
+[datasets]
+keys = attribute_ner
+
+[dataset_attribute_ner]
+class = LabelStudioDataset
+project_ids = 100,102,104,106,108,109
